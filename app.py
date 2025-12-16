@@ -136,12 +136,31 @@ def potager():
 
     region = (data.get("region") or "France").strip()
     mois = (data.get("mois") or "Décembre").strip()
-    phase_lune = (data.get("phase_lune") or "").strip()
-
-    system = (
-        "Tu es un jardinier expert du potager en France. "
-        "Tu réponds UNIQUEMENT en JSON strict, sans texte autour."
+    # phase_lune: accepte plusieurs clés possibles (robuste)
+    phase_lune = (
+        data.get("phase_lune")
+        or data.get("phaseLune")
+        or data.get("lune")
+        or data.get("phase")
+        or ""
     )
+    phase_lune = str(phase_lune).strip().lower()
+    
+    # normalisation
+    if phase_lune in ["croissant", "waxing", "waxing_moon"]:
+        phase_lune = "croissante"
+    if phase_lune in ["decroissant", "décroissant", "waning", "waning_moon"]:
+        phase_lune = "décroissante"
+    
+    # sécurité: valeurs autorisées
+    if phase_lune not in ["croissante", "décroissante"]:
+        phase_lune = ""
+    
+    
+        system = (
+            "Tu es un jardinier expert du potager en France. "
+            "Tu réponds UNIQUEMENT en JSON strict, sans texte autour."
+        )
 
     user = f"""
 Région: {region}
