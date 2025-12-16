@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, Response
 import os
 import base64
+import json, re
 from openai import OpenAI
 
 app = Flask(__name__)
@@ -119,3 +120,81 @@ def analyze_image():
     )
 
     return jsonify({"result": (r.output_text or "").strip()})
+
+def _extract_json_object(text: str) -> dict:
+    """Récupère le 1er objet JSON trouvé dans un texte (si l'IA ajoute du texte autour)."""
+    if not text:
+        raise ValueError("empty")
+    m = re.search(r"\{.*\}", text, flags=re.S)
+    if not m:
+        raise ValueError("no_json")
+    return json.loads(m.group(0))
+
+
+@app.post("/potager")
+def potager():
+    data = request.get_json(silent=True) or {}
+    region = (data.get("region") or "France").strip()
+    mois = (data.get("mois") or "Décembre").strip()
+
+    system = (
+        "Tu es un jardinier expert du potager en France. "
+        "Tu réponds UNIQUEMENT en JSON strict, sans texte autour."
+    )
+
+    user = f"""
+Région: {region}
+Mois: {mois}
+
+Génère un calendrier potager réaliste incluant :
+- légumes
+- fruits (ex: fraisiers, petits fruits, arbres fruitiers si pertinent)
+- aromatiques
+
+Contraintes :
+- JSON strict uniquement
+- 10 à 20 éléments par liste
+- pas de doublons
+- si un élément est sous abri / serre, précise-le entre parenthèses
+
+Format EXACT:
+{{
+  "semer": [...],
+  "planter": [...],
+  "a_eviter": [...]
+}}
+""".strip()
+
+    r = client.responses.create(
+        model="gpt-4.1-mini",
+        input=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+    )
+
+    txt = (r.output_text or "").strip()
+
+    try:
+        obj = _extract_json_object(txt)
+        semer = obj.get("semer", []) or []
+        planter = obj.get("planter", []) or []
+        a_eviter = obj.get("a_eviter", []) or []
+
+        return jsonify({
+            "region": region,
+            "mois": mois,
+            "semer": semer[:20],
+            "planter": planter[:20],
+            "a_eviter": a_eviter[:20],
+        })
+    except Exception:
+        return jsonify({
+            "region": region,
+            "mois": mois,
+            "semer": ["Erreur IA: réponse non JSON (réessaie)"],
+            "planter": [],
+            "a_eviter": [],
+            "raw": txt[:800],
+        }), 200
+
