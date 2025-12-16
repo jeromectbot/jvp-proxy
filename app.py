@@ -1,3 +1,5 @@
+import urllib.request
+import urllib.parse
 from datetime import date, datetime, timezone
 from flask import Flask, request, jsonify, Response
 import os
@@ -147,6 +149,66 @@ def _phase_lune_auto_utc() -> str:
 
     # Croissante : de nouvelle lune à pleine lune (~14.765j), décroissante après
     return "croissante" if age < (synodic_month / 2.0) else "décroissante"
+def _region_to_coords(region: str):
+    # Approximation par ville “référence” (suffisant pour démarrer)
+    mapping = {
+        "Nord": (50.6292, 3.0573),       # Lille
+        "Ouest": (47.2184, -1.5536),     # Nantes
+        "Est": (48.5734, 7.7521),        # Strasbourg
+        "Sud-Ouest": (43.6047, 1.4442),  # Toulouse
+        "Sud-Est": (43.2965, 5.3698),    # Marseille
+        "Montagne": (45.9237, 6.8694),   # Chamonix
+        "France": (46.6034, 1.8883),     # Centre approx
+    }
+    return mapping.get(region, mapping["France"])
+
+def _fetch_json(url: str) -> dict:
+    with urllib.request.urlopen(url, timeout=10) as r:
+        return json.loads(r.read().decode("utf-8", errors="ignore"))
+
+def _meteo_resume(region: str) -> dict:
+    lat, lon = _region_to_coords(region)
+    base = "https://api.open-meteo.com/v1/forecast"
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "timezone": "Europe/Paris",
+        "daily": "temperature_2m_min,temperature_2m_max,precipitation_sum,windspeed_10m_max",
+        "forecast_days": 7,
+    }
+    url = base + "?" + urllib.parse.urlencode(params)
+    data = _fetch_json(url)
+
+    daily = data.get("daily", {}) or {}
+    tmin = daily.get("temperature_2m_min", []) or []
+    tmax = daily.get("temperature_2m_max", []) or []
+    rain = daily.get("precipitation_sum", []) or []
+    wind = daily.get("windspeed_10m_max", []) or []
+
+    if not tmin or not tmax:
+        return {"ok": False, "region": region}
+
+    # Indicateurs simples
+    min7 = min(tmin) if tmin else None
+    max7 = max(tmax) if tmax else None
+    rain7 = sum(rain) if rain else 0.0
+    wind7 = max(wind) if wind else None
+    gel = (min7 is not None and min7 <= 0.0)
+
+    return {
+        "ok": True,
+        "region": region,
+        "min_7j": round(min7, 1) if min7 is not None else None,
+        "max_7j": round(max7, 1) if max7 is not None else None,
+        "pluie_7j_mm": round(rain7, 1),
+        "vent_max_kmh": round(wind7, 1) if wind7 is not None else None,
+        "risque_gel": bool(gel),
+        "conseil": (
+            "Risque de gel : protège les cultures sensibles, limite les arrosages tardifs."
+            if gel else
+            "Pas de gel marqué : surveille l’humidité et adapte l’arrosage selon la pluie."
+        )
+    }
     
 @app.post("/potager")
 def potager():
@@ -263,5 +325,12 @@ Format EXACT:
             "lune": {"phase": "erreur", "conseil": ""},
             "raw": txt[:800]
         }), 200
+
+@app.post("/meteo")
+def meteo():
+    data = request.get_json(silent=True) or {}
+    region = (data.get("region") or "France").strip()
+    return jsonify(_meteo_resume(region))
+
 
 
