@@ -192,13 +192,15 @@ Format EXACT:
         planter = obj.get("planter", []) or []
         a_eviter = obj.get("a_eviter", []) or []
 
-        return jsonify({
-            "region": region,
-            "mois": mois,
-            "semer": semer[:20],
-            "planter": planter[:20],
-            "a_eviter": a_eviter[:20],
-        })
+       return jsonify({
+    "region": region,
+    "mois": mois,
+    "semer": semer[:20],
+    "planter": planter[:20],
+    "a_eviter": a_eviter[:20],
+    "lune": obj.get("lune", {"phase": "phase_non_fournie", "conseil": ""})
+})
+
     except Exception:
         return jsonify({
             "region": region,
