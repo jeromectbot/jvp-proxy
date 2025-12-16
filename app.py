@@ -130,6 +130,7 @@ def _extract_json_object(text: str) -> dict:
     if not m:
         raise ValueError("no_json")
     return json.loads(m.group(0))
+    
 @app.post("/potager")
 def potager():
     data = request.get_json(silent=True)
@@ -156,12 +157,11 @@ def potager():
 
     if phase_lune in ["croissant", "waxing", "waxing_moon"]:
         phase_lune = "croissante"
-    if phase_lune in ["decroissant", "décroissant", "waning", "waning_moon"]:
+    elif phase_lune in ["decroissant", "décroissant", "waning", "waning_moon"]:
         phase_lune = "décroissante"
-    if phase_lune not in ["croissante", "décroissante"]:
+    else:
         phase_lune = ""
 
-    # ✅ system DOIT être défini hors de tout if
     system = (
         "Tu es un jardinier expert du potager en France. "
         "Tu réponds UNIQUEMENT en JSON strict, sans texte autour."
@@ -169,7 +169,7 @@ def potager():
 
     user = f"""
 Région: {region}
-Mois: {mois}
+Mois (à respecter à l’identique): {mois}
 Phase de lune (si fournie): {phase_lune}
 
 Génère un calendrier potager réaliste incluant :
@@ -213,19 +213,14 @@ Format EXACT:
     try:
         obj = _extract_json_object(txt)
 
-        semer = obj.get("semer", []) or []
-        planter = obj.get("planter", []) or []
-        a_eviter = obj.get("a_eviter", []) or []
-        lune = obj.get("lune", {"phase": "phase_non_fournie", "conseil": ""})
-
         return jsonify({
             "region": region,
             "mois": mois,
             "phase_lune_recue": phase_lune,
-            "semer": semer[:20],
-            "planter": planter[:20],
-            "a_eviter": a_eviter[:20],
-            "lune": lune
+            "semer": obj.get("semer", [])[:20],
+            "planter": obj.get("planter", [])[:20],
+            "a_eviter": obj.get("a_eviter", [])[:20],
+            "lune": obj.get("lune", {"phase": "phase_non_fournie", "conseil": ""})
         })
 
     except Exception:
@@ -239,4 +234,5 @@ Format EXACT:
             "lune": {"phase": "erreur", "conseil": ""},
             "raw": txt[:800]
         }), 200
+
 
