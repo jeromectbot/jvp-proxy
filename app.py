@@ -130,13 +130,13 @@ def _extract_json_object(text: str) -> dict:
         raise ValueError("no_json")
     return json.loads(m.group(0))
 
-
 @app.post("/potager")
 def potager():
     data = request.get_json(silent=True) or {}
+
     region = (data.get("region") or "France").strip()
     mois = (data.get("mois") or "Décembre").strip()
-    phase_lune = (data.get("phase_lune") or "").strip()  # ex: "croissante" / "décroissante"
+    phase_lune = (data.get("phase_lune") or "").strip()
 
     system = (
         "Tu es un jardinier expert du potager en France. "
@@ -188,26 +188,30 @@ Format EXACT:
 
     try:
         obj = _extract_json_object(txt)
+
         semer = obj.get("semer", []) or []
         planter = obj.get("planter", []) or []
         a_eviter = obj.get("a_eviter", []) or []
+        lune = obj.get("lune", {"phase": "phase_non_fournie", "conseil": ""})
 
-       return jsonify({
-    "region": region,
-    "mois": mois,
-    "semer": semer[:20],
-    "planter": planter[:20],
-    "a_eviter": a_eviter[:20],
-    "lune": obj.get("lune", {"phase": "phase_non_fournie", "conseil": ""})
-})
+        return jsonify({
+            "region": region,
+            "mois": mois,
+            "phase_lune_recue": phase_lune,
+            "semer": semer[:20],
+            "planter": planter[:20],
+            "a_eviter": a_eviter[:20],
+            "lune": lune
+        })
 
     except Exception:
         return jsonify({
             "region": region,
             "mois": mois,
-            "semer": ["Erreur IA: réponse non JSON (réessaie)"],
+            "phase_lune_recue": phase_lune,
+            "semer": [],
             "planter": [],
             "a_eviter": [],
-            "raw": txt[:800],
+            "lune": {"phase": "erreur", "conseil": ""},
+            "raw": txt[:800]
         }), 200
-
