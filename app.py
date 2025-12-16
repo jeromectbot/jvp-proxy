@@ -224,6 +224,7 @@ def potager():
 
     region = (data.get("region") or "France").strip()
     mois = (data.get("mois") or "Décembre").strip()
+    meteo = _meteo_resume(region)
 
     # phase_lune robuste (accepte plusieurs clés + normalise)
     phase_lune = (
@@ -253,6 +254,13 @@ def potager():
 Région: {region}
 Mois (à respecter à l’identique): {mois}
 Phase de lune (si fournie): {phase_lune}
+Météo 7 jours (à prendre en compte) :
+- Min 7j: {meteo.get("min_7j")}
+- Max 7j: {meteo.get("max_7j")}
+- Pluie 7j (mm): {meteo.get("pluie_7j_mm")}
+- Vent max (km/h): {meteo.get("vent_max_kmh")}
+- Risque gel: {meteo.get("risque_gel")}
+- Conseil météo: {meteo.get("conseil")}
 
 Génère un calendrier potager réaliste incluant :
 - légumes
@@ -311,7 +319,8 @@ Format EXACT:
             "semer": semer,
             "planter": planter,
             "a_eviter": a_eviter,
-            "lune": lune
+            "lune": lune,
+            "meteo": meteo,
         })
 
     except Exception:
