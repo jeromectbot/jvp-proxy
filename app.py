@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, Response
 import os
 import base64
-import json, re
+import json
 from openai import OpenAI
 
 app = Flask(__name__)
@@ -132,7 +132,15 @@ def _extract_json_object(text: str) -> dict:
 
 @app.post("/potager")
 def potager():
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    # Fallback solide si Flask ne parse pas le JSON (Render/headers parfois)
+    if not isinstance(data, dict) or not data:
+        try:
+            raw = request.data.decode("utf-8", errors="ignore").strip()
+            data = json.loads(raw) if raw else {}
+        except Exception:
+            data = {}
+
 
     region = (data.get("region") or "France").strip()
     mois = (data.get("mois") or "Décembre").strip()
