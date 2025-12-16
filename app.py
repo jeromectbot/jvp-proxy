@@ -146,6 +146,7 @@ def potager():
     region = (data.get("region") or "France").strip()
     mois = (data.get("mois") or "Décembre").strip()
 
+    # phase_lune robuste (accepte plusieurs clés + normalise)
     phase_lune = (
         data.get("phase_lune")
         or data.get("phaseLune")
@@ -155,9 +156,9 @@ def potager():
     )
     phase_lune = str(phase_lune).strip().lower()
 
-    if phase_lune in ["croissant", "waxing", "waxing_moon"]:
+    if phase_lune in ["croissante", "croissant", "waxing", "waxing_moon"]:
         phase_lune = "croissante"
-    elif phase_lune in ["decroissant", "décroissant", "waning", "waning_moon"]:
+    elif phase_lune in ["décroissante", "decroissante", "décroissant", "waning", "waning_moon"]:
         phase_lune = "décroissante"
     else:
         phase_lune = ""
@@ -213,14 +214,23 @@ Format EXACT:
     try:
         obj = _extract_json_object(txt)
 
+        semer = (obj.get("semer") or [])[:20]
+        planter = (obj.get("planter") or [])[:20]
+        a_eviter = (obj.get("a_eviter") or [])[:20]
+
+        lune = obj.get("lune") or {"phase": "phase_non_fournie", "conseil": ""}
+        # Force la phase renvoyée si on en a fourni une
+        if phase_lune:
+            lune["phase"] = phase_lune
+
         return jsonify({
             "region": region,
             "mois": mois,
             "phase_lune_recue": phase_lune,
-            "semer": obj.get("semer", [])[:20],
-            "planter": obj.get("planter", [])[:20],
-            "a_eviter": obj.get("a_eviter", [])[:20],
-            "lune": obj.get("lune", {"phase": "phase_non_fournie", "conseil": ""})
+            "semer": semer,
+            "planter": planter,
+            "a_eviter": a_eviter,
+            "lune": lune
         })
 
     except Exception:
