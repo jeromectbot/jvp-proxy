@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, Response
 import os
 import base64
 import json
+import re
 from openai import OpenAI
 
 app = Flask(__name__)
@@ -129,11 +130,11 @@ def _extract_json_object(text: str) -> dict:
     if not m:
         raise ValueError("no_json")
     return json.loads(m.group(0))
-
 @app.post("/potager")
 def potager():
     data = request.get_json(silent=True)
-    # Fallback solide si Flask ne parse pas le JSON (Render/headers parfois)
+
+    # Fallback solide si Flask ne parse pas le JSON
     if not isinstance(data, dict) or not data:
         try:
             raw = request.data.decode("utf-8", errors="ignore").strip()
@@ -141,10 +142,9 @@ def potager():
         except Exception:
             data = {}
 
-
     region = (data.get("region") or "France").strip()
     mois = (data.get("mois") or "Décembre").strip()
-    # phase_lune: accepte plusieurs clés possibles (robuste)
+
     phase_lune = (
         data.get("phase_lune")
         or data.get("phaseLune")
@@ -153,22 +153,19 @@ def potager():
         or ""
     )
     phase_lune = str(phase_lune).strip().lower()
-    
-    # normalisation
+
     if phase_lune in ["croissant", "waxing", "waxing_moon"]:
         phase_lune = "croissante"
     if phase_lune in ["decroissant", "décroissant", "waning", "waning_moon"]:
         phase_lune = "décroissante"
-    
-    # sécurité: valeurs autorisées
     if phase_lune not in ["croissante", "décroissante"]:
         phase_lune = ""
-    
-    
-        system = (
-            "Tu es un jardinier expert du potager en France. "
-            "Tu réponds UNIQUEMENT en JSON strict, sans texte autour."
-        )
+
+    # ✅ system DOIT être défini hors de tout if
+    system = (
+        "Tu es un jardinier expert du potager en France. "
+        "Tu réponds UNIQUEMENT en JSON strict, sans texte autour."
+    )
 
     user = f"""
 Région: {region}
@@ -242,3 +239,4 @@ Format EXACT:
             "lune": {"phase": "erreur", "conseil": ""},
             "raw": txt[:800]
         }), 200
+
