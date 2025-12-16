@@ -1,3 +1,4 @@
+from datetime import date, datetime, timezone
 from flask import Flask, request, jsonify, Response
 import os
 import base64
@@ -131,6 +132,22 @@ def _extract_json_object(text: str) -> dict:
         raise ValueError("no_json")
     return json.loads(m.group(0))
     
+def _phase_lune_auto_utc() -> str:
+    """
+    Retourne 'croissante' ou 'décroissante' (approximation fiable pour usage jardin).
+    Basé sur un cycle synodique moyen, sans dépendance externe.
+    """
+    synodic_month = 29.53058867  # jours
+    # Référence nouvelle lune (UTC) : 2000-01-06 18:14
+    ref = datetime(2000, 1, 6, 18, 14, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+
+    days = (now - ref).total_seconds() / 86400.0
+    age = days % synodic_month  # âge de la lune en jours
+
+    # Croissante : de nouvelle lune à pleine lune (~14.765j), décroissante après
+    return "croissante" if age < (synodic_month / 2.0) else "décroissante"
+    
 @app.post("/potager")
 def potager():
     data = request.get_json(silent=True)
@@ -156,6 +173,8 @@ def potager():
     )
     phase_lune = str(phase_lune).strip().lower()
 
+    if not phase_lune:
+        phase_lune = _phase_lune_auto_utc()
     if phase_lune in ["croissante", "croissant", "waxing", "waxing_moon"]:
         phase_lune = "croissante"
     elif phase_lune in ["décroissante", "decroissante", "décroissant", "waning", "waning_moon"]:
