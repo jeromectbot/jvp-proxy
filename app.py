@@ -136,6 +136,7 @@ def potager():
     data = request.get_json(silent=True) or {}
     region = (data.get("region") or "France").strip()
     mois = (data.get("mois") or "Décembre").strip()
+    phase_lune = (data.get("phase_lune") or "").strip()  # ex: "croissante" / "décroissante"
 
     system = (
         "Tu es un jardinier expert du potager en France. "
@@ -145,6 +146,7 @@ def potager():
     user = f"""
 Région: {region}
 Mois: {mois}
+Phase de lune (si fournie): {phase_lune}
 
 Génère un calendrier potager réaliste incluant :
 - légumes
@@ -157,11 +159,20 @@ Contraintes :
 - pas de doublons
 - si un élément est sous abri / serre, précise-le entre parenthèses
 
+RÈGLE LUNE (STRICTE) :
+- Si phase_lune est vide : mets "phase_non_fournie" et NE DONNE PAS de conseils lunaires.
+- Si phase_lune est fournie (croissante/décroissante) : donne un court conseil lunaire OPTIONNEL.
+- Ne jamais inventer une phase.
+
 Format EXACT:
 {{
   "semer": [...],
   "planter": [...],
-  "a_eviter": [...]
+  "a_eviter": [...],
+  "lune": {{
+    "phase": "croissante" | "décroissante" | "phase_non_fournie",
+    "conseil": "string (court)" | ""
+  }}
 }}
 """.strip()
 
