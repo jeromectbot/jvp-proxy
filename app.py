@@ -234,29 +234,35 @@ def health():
 @app.post("/analyze")
 def analyze():
     data = request.get_json(silent=True) or {}
-    prompt = (data.get("prompt") or "").strip()
-    if not prompt:
+
+    user_text = (data.get("prompt") or "").strip()
+    if not user_text:
         return jsonify({"error": "No prompt provided"}), 400
+
+    final_prompt = f"""{CTBOT_JARDIN_PROMPT}
+
+CONTEXTE UTILISATEUR :
+{user_text}
+"""
 
     r = client.responses.create(
         model="gpt-4o-mini",
         input=[{
             "role": "user",
-            "content": [{"type": "input_text", "text": prompt}]
+            "content": [{"type": "input_text", "text": final_prompt}]
         }]
     )
-    return jsonify({"result": (r.output_text or "").strip()})
 
+    return jsonify({"result": (r.output_text or "").strip()})
 
 # ✅ Analyse image (CELUI QUI MANQUE → corrige ton 404 Android)
 @app.post("/analyze-image")
 def analyze_image():
     data = request.get_json(silent=True) or {}
     img_b64 = (data.get("image_base64") or "").strip()
-    prompt = (data.get("prompt") or "").strip()
 
-    if not img_b64 or not prompt:
-        return jsonify({"error": "Missing image_base64 or prompt"}), 400
+    if not img_b64:
+        return jsonify({"error": "Missing image_base64"}), 400
 
     # On accepte base64 nu, ou data URL si jamais
     if img_b64.startswith("data:image"):
@@ -274,7 +280,7 @@ def analyze_image():
         input=[{
             "role": "user",
             "content": [
-                {"type": "input_text", "text": prompt},
+                {"type": "input_text", "text": CTBOT_JARDIN_PROMPT},
                 {"type": "input_image", "image_url": data_url, "detail": "low"}
             ]
         }]
