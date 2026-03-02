@@ -325,9 +325,17 @@ def _region_to_coords(region: str):
     }
     return mapping.get(region, mapping["France"])
 
-def _fetch_json(url: str) -> dict:
-    with urllib.request.urlopen(url, timeout=10) as r:
-        return json.loads(r.read().decode("utf-8", errors="ignore"))
+def _fetch_json(url: str):
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "jardin-vision-proxy/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return json.loads(r.read().decode("utf-8", errors="ignore"))
+    except Exception as e:
+        print(f"[METEO] fetch failed: {e}")
+        return None
 
 def _meteo_resume(region: str) -> dict:
     lat, lon = _region_to_coords(region)
@@ -340,8 +348,8 @@ def _meteo_resume(region: str) -> dict:
         "forecast_days": 7,
     }
     url = base + "?" + urllib.parse.urlencode(params)
-    data = _fetch_json(url)
-
+    data = _fetch_json(url) or {}
+  
     daily = data.get("daily", {}) or {}
     tmin = daily.get("temperature_2m_min", []) or []
     tmax = daily.get("temperature_2m_max", []) or []
